@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RENDY — Digital Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKEN SYSTEM
+   Overworld (hero) -> Crafting/Wood (about) -> Cave (skills)
+   -> Village (projects) -> Nether Portal (contact)
+   ============================================================ */
+:root{
+  --sky-top:#3E8FD9;
+  --sky-bottom:#9AD6F0;
+  --grass:#6AAB3B;
+  --grass-dark:#4E8A2A;
+  --dirt:#7A4B2A;
+  --dirt-dark:#5C3A20;
+  --wood:#9C6B3E;
+  --wood-dark:#6E4726;
+  --wood-plank:#B98149;
+  --stone:#8B8B8B;
+  --stone-dark:#4A4A4A;
+  --cave-bg:#1B1B22;
+  --cave-bg2:#2A2A34;
+  --torch:#FFB347;
+  --emerald:#3BC46A;
+  --diamond:#5ED9E0;
+  --gold:#F0C000;
+  --redstone:#D0342C;
+  --nether:#2A0E33;
+  --nether2:#5A1A6B;
+  --portal:#C860FF;
+  --paper:#EFE3C7;
+  --ink:#2B2118;
+  --white:#F5F5F0;
+  --font-pixel:'Press Start 2P', monospace;
+  --font-body:'VT323', monospace;
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:var(--font-body);
+  background:var(--cave-bg);
+  color:var(--white);
+  overflow-x:hidden;
+  font-size:20px;
+  line-height:1.5;
+}
+img{image-rendering:pixelated;}
+::selection{background:var(--emerald); color:#000;}
+h1,h2,h3,.pixel{font-family:var(--font-pixel);}
+
+/* pixel-corner utility: crisp blocky border look */
+.pixel-border{
+  border:4px solid #000;
+  box-shadow:
+    inset 0 0 0 4px rgba(255,255,255,0.15),
+    0 6px 0 rgba(0,0,0,0.4);
+}
+
+a{color:inherit; text-decoration:none;}
+button{font-family:var(--font-pixel); cursor:pointer; border:none;}
+
+section{
+  position:relative;
+  padding:100px 24px 120px;
+  overflow:hidden;
+}
+
+.wrap{max-width:1100px; margin:0 auto; position:relative; z-index:2;}
+
+.eyebrow{
+  font-family:var(--font-pixel);
+  font-size:11px;
+  letter-spacing:2px;
+  color:var(--gold);
+  margin-bottom:18px;
+  display:inline-block;
+  background:rgba(0,0,0,0.35);
+  padding:6px 10px;
+  border:2px solid rgba(0,0,0,0.5);
+}
+
+.section-title{
+  font-size:28px;
+  margin-bottom:40px;
+  text-shadow:4px 4px 0 rgba(0,0,0,0.5);
+  line-height:1.4;
+}
+
+/* ============================================================
+   TOP XP PROGRESS BAR (signature scroll indicator)
+   ============================================================ */
+#xp-bar-wrap{
+  position:fixed; top:0; left:0; width:100%; height:14px;
+  background:#000; z-index:1000; border-bottom:3px solid #1a1a1a;
+}
+#xp-bar-fill{
+  height:100%; width:0%;
+  background:repeating-linear-gradient(90deg, #7FE85A 0 8px, #63C93E 8px 16px);
+  box-shadow:0 0 12px #7FE85A inset;
+  transition:width 0.1s linear;
+  position:relative;
+}
+#xp-bar-fill::after{
+  content:''; position:absolute; right:0; top:0; bottom:0; width:3px; background:#fff;
+  box-shadow:0 0 8px #fff;
+}
+#xp-label{
+  position:fixed; top:16px; left:12px; z-index:1000;
+  font-family:var(--font-pixel); font-size:9px; color:#7FE85A;
+  text-shadow:2px 2px 0 #000;
+  pointer-events:none;
+}
+
+/* ============================================================
+   ACHIEVEMENT TOAST
+   ============================================================ */
+#achv-container{
+  position:fixed; top:34px; right:16px; z-index:1000;
+  display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+}
+.achv-toast{
+  background:linear-gradient(180deg,#2b2b2b,#111);
+  border:3px solid #000;
+  box-shadow:inset 0 0 0 2px #555, 0 4px 0 rgba(0,0,0,0.5);
+  padding:10px 14px;
+  display:flex; align-items:center; gap:10px;
+  min-width:230px;
+  transform:translateX(120%);
+  opacity:0;
+  animation:achvIn 0.4s ease-out forwards, achvOut 0.4s ease-in forwards 3s;
+}
+.achv-icon{
+  width:32px; height:32px; background:var(--gold);
+  border:2px solid #000; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.achv-text .achv-top{font-family:var(--font-pixel); font-size:8px; color:var(--gold); margin-bottom:4px;}
+.achv-text .achv-bottom{font-family:var(--font-pixel); font-size:9px; color:#fff;}
+@keyframes achvIn{from{transform:translateX(120%); opacity:0;} to{transform:translateX(0); opacity:1;}}
+@keyframes achvOut{from{transform:translateX(0); opacity:1;} to{transform:translateX(120%); opacity:0;}}
+
+/* ============================================================
+   HERO — OVERWORLD
+   ============================================================ */
+#hero{
+  min-height:100vh;
+  display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 70%);
+  padding-top:0;
+}
+.sun{
+  position:absolute; top:60px; right:80px; width:70px; height:70px;
+  background:#FFF3B0; box-shadow:0 0 0 8px rgba(255,243,176,0.35), 0 0 60px 10px rgba(255,243,176,0.5);
+  animation:sunPulse 4s ease-in-out infinite;
+}
+@keyframes sunPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+
+.cloud{
+  position:absolute; background:#fff; opacity:0.9;
+  box-shadow:20px 0 0 #fff, 40px 0 0 #fff, 20px -16px 0 #fff, 40px -16px 0 #fff, -20px 0 0 #fff;
+  width:24px; height:16px;
+}
+.cloud1{top:100px; left:-10%; animation:driftRight 60s linear infinite;}
+.cloud2{top:180px; left:-30%; animation:driftRight 90s linear infinite; opacity:0.7; transform:scale(1.4);}
+.cloud3{top:70px; left:-50%; animation:driftRight 75s linear infinite; opacity:0.8; transform:scale(0.8);}
+@keyframes driftRight{from{transform:translateX(0) scale(var(--s,1));} to{transform:translateX(140vw) scale(var(--s,1));}}
+
+.floating-block{
+  position:absolute; width:34px; height:34px;
+  border:3px solid rgba(0,0,0,0.5);
+  animation:floatBlock 6s ease-in-out infinite;
+  z-index:1;
+}
+.fb1{background:var(--dirt); top:22%; left:8%; animation-delay:0s;}
+.fb2{background:var(--stone); top:35%; right:10%; animation-delay:1.2s;}
+.fb3{background:var(--gold); top:60%; left:14%; animation-delay:2.4s; width:24px; height:24px;}
+.fb4{background:var(--diamond); top:15%; right:22%; animation-delay:0.6s; width:22px; height:22px;}
+@keyframes floatBlock{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-22px) rotate(8deg);}}
+
+.ground-row{
+  position:absolute; bottom:0; left:0; width:100%; height:110px;
+  display:flex;
+}
+.ground-block{
+  flex:1; height:100%; position:relative;
+  background:
+    linear-gradient(180deg, var(--grass) 0 22%, var(--dirt) 22% 100%);
+  border-right:2px solid rgba(0,0,0,0.15);
+  animation:groundBob 3s ease-in-out infinite;
+}
+@keyframes groundBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
+
+.hero-content{
+  position:relative; z-index:3; text-align:center;
+  padding:0 20px;
+}
+.hero-tag{
+  font-family:var(--font-pixel); font-size:11px; color:#1B3D0F;
+  background:rgba(255,255,255,0.55); display:inline-block;
+  padding:6px 12px; margin-bottom:22px; border:2px solid rgba(0,0,0,0.3);
+}
+.hero-title{
+  font-size:clamp(28px, 6vw, 54px);
+  color:#fff;
+  text-shadow:
+    4px 4px 0 #2B2B2B,
+    8px 8px 0 rgba(0,0,0,0.35);
+  letter-spacing:1px;
+  margin-bottom:20px;
+}
+.hero-sub{
+  font-size:24px;
+  color:#1B3D0F;
+  font-family:var(--font-body);
+  margin-bottom:36px;
+  min-height:32px;
+}
+.hero-sub .cursor-blink{animation:blink 1s step-end infinite;}
+@keyframes blink{50%{opacity:0;}}
+
+.hero-btns{display:flex; gap:18px; justify-content:center; flex-wrap:wrap;}
+.mc-btn{
+  font-size:12px;
+  padding:16px 22px;
+  background:var(--stone);
+  color:#fff;
+  border:3px solid #000;
+  box-shadow:inset -3px -5px 0 rgba(0,0,0,0.35), inset 3px 3px 0 rgba(255,255,255,0.25), 0 5px 0 rgba(0,0,0,0.3);
+  transition:transform 0.08s ease;
+  text-shadow:2px 2px 0 rgba(0,0,0,0.4);
+}
+.mc-btn:hover{filter:brightness(1.15);}
+.mc-btn:active{transform:translateY(4px); box-shadow:inset -3px -5px 0 rgba(0,0,0,0.35);}
+.mc-btn.primary{background:var(--emerald);}
+.mc-btn.accent{background:var(--gold); color:#3a2b00;}
+
+.scroll-hint{
+  position:absolute; bottom:130px; left:50%; transform:translateX(-50%);
+  font-family:var(--font-pixel); font-size:10px; color:#fff;
+  text-shadow:2px 2px 0 rgba(0,0,0,0.5);
+  animation:bob 1.6s ease-in-out infinite;
+  z-index:3;
+}
+@keyframes bob{0%,100%{transform:translate(-50%,0);}50%{transform:translate(-50%,10px);}}
+
+/* ============================================================
+   ABOUT — CRAFTING TABLE (WOOD)
+   ============================================================ */
+#about{
+  background:
+    repeating-linear-gradient(90deg, var(--wood-plank) 0 38px, var(--wood) 38px 42px);
+  color:var(--ink);
+}
+#about::before{
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(180deg, rgba(0,0,0,0.06) 0 4px, transparent 4px 40px);
+  pointer-events:none;
+}
+.about-grid{
+  display:grid; grid-template-columns:220px 1fr; gap:56px; align-items:start;
+}
+@media (max-width:720px){.about-grid{grid-template-columns:1fr; justify-items:center; text-align:center;}}
+
+.avatar-box{
+  width:200px; height:200px; margin:0 auto;
+  background:var(--paper);
+  border:4px solid #000;
+  box-shadow:inset 0 0 0 4px rgba(0,0,0,0.15), 0 8px 0 rgba(0,0,0,0.25);
+  display:flex; align-items:center; justify-content:center;
+  animation:idleFloat 4s ease-in-out infinite;
+}
+@keyframes idleFloat{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-8px) rotate(-2deg);}}
+.avatar-pixel{
+  width:96px; height:96px;
+  image-rendering:pixelated;
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  grid-template-rows:repeat(12,1fr);
+}
+.avatar-pixel div{width:100%; height:100%;}
+
+.about-bio{font-size:21px; margin-bottom:28px; max-width:560px;}
+.about-bio strong{color:var(--redstone);}
+
+.stat-row{display:flex; gap:16px; flex-wrap:wrap; margin-bottom:44px;}
+.stat-card{
+  background:var(--paper); border:3px solid #000; padding:14px 18px; min-width:130px;
+  box-shadow:0 5px 0 rgba(0,0,0,0.25);
+  transition:transform 0.15s ease;
+}
+.stat-card:hover{transform:translateY(-4px);}
+.stat-num{font-family:var(--font-pixel); font-size:20px; color:var(--redstone);}
+.stat-lbl{font-size:14px; text-transform:uppercase; letter-spacing:1px; opacity:0.75;}
+
+.recipe-title{font-family:var(--font-pixel); font-size:13px; margin-bottom:16px;}
+.crafting{display:flex; align-items:center; gap:24px; flex-wrap:wrap;}
+.craft-grid{
+  display:grid; grid-template-columns:repeat(3,56px); grid-template-rows:repeat(3,56px); gap:6px;
+  background:var(--wood-dark); padding:10px; border:3px solid #000;
+}
+.craft-slot{
+  background:#C9B48A; border:2px solid rgba(0,0,0,0.4);
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,0.15);
+}
+.craft-arrow{font-size:30px;}
+.craft-output{
+  width:64px; height:64px; background:var(--wood-dark); border:3px solid #000;
+  display:flex; align-items:center; justify-content:center; font-size:30px;
+  animation:outputGlow 2s ease-in-out infinite;
+}
+@keyframes outputGlow{0%,100%{box-shadow:0 0 0 rgba(94,217,224,0);}50%{box-shadow:0 0 22px rgba(94,217,224,0.8);}}
+
+/* ============================================================
+   SKILLS — CAVE
+   ============================================================ */
+#skills{
+  background:radial-gradient(circle at 50% 0%, var(--cave-bg2), var(--cave-bg) 70%);
+}
+#skills::before{
+  content:''; position:absolute; inset:0; opacity:0.5;
+  background-image:radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size:22px 22px;
+  pointer-events:none;
+}
+.torch{
+  position:absolute; width:40px; height:70px; top:40px;
+  background:linear-gradient(180deg, transparent 0%, transparent 55%, var(--wood-dark) 55% 100%);
+}
+.torch::before{
+  content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+  width:16px; height:22px; background:var(--torch);
+  border-radius:50% 50% 20% 20%;
+  box-shadow:0 0 20px 8px rgba(255,179,71,0.7), 0 0 45px 18px rgba(255,140,0,0.35);
+  animation:flicker 1.4s ease-in-out infinite;
+}
+.torch.left{left:24px;}
+.torch.right{right:24px;}
+@keyframes flicker{0%,100%{opacity:1; transform:translateX(-50%) scale(1);}25%{opacity:0.85; transform:translateX(-50%) scale(0.94);}50%{opacity:1; transform:translateX(-50%) scale(1.05);}75%{opacity:0.9; transform:translateX(-53%) scale(0.97);}}
+
+.inv-grid{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px;
+}
+.slot{
+  background:linear-gradient(180deg, var(--stone-dark), #333);
+  border:3px solid #000;
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,0.06), 0 5px 0 rgba(0,0,0,0.4);
+  padding:16px;
+  position:relative;
+  transition:transform 0.15s ease;
+  cursor:default;
+}
+.slot:hover{transform:translateY(-6px) scale(1.03); z-index:5;}
+.slot-top{display:flex; align-items:center; gap:12px; margin-bottom:12px;}
+.slot-icon{
+  width:40px; height:40px; background:#111; border:2px solid rgba(255,255,255,0.15);
+  display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;
+}
+.slot-name{font-family:var(--font-pixel); font-size:11px;}
+.slot-tier{font-size:13px; color:var(--gold); margin-top:2px;}
+.durability{height:8px; background:#000; border:1px solid #000;}
+.durability-fill{height:100%; transition:width 1s ease;}
+.slot-tooltip{
+  position:absolute; bottom:100%; left:50%; transform:translateX(-50%) translateY(6px);
+  background:#000; color:#fff; font-family:var(--font-pixel); font-size:8px;
+  padding:6px 8px; white-space:nowrap; opacity:0; pointer-events:none;
+  border:2px solid #555; transition:all 0.15s ease;
+}
+.slot:hover .slot-tooltip{opacity:1; transform:translateX(-50%) translateY(-2px);}
+
+/* ============================================================
+   PROJECTS — VILLAGE
+   ============================================================ */
+#projects{
+  background:
+    repeating-linear-gradient(0deg, #C9AE7C 0 44px, #BFA170 44px 46px);
+  color:var(--ink);
+}
+.proj-grid{
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:26px;
+}
+.proj-card{
+  background:var(--paper); border:4px solid #000;
+  box-shadow:0 8px 0 rgba(0,0,0,0.25);
+  display:flex; flex-direction:column; overflow:hidden;
+  transition:transform 0.2s ease, box-shadow 0.2s ease;
+}
+.proj-card:hover{transform:translateY(-8px); box-shadow:0 14px 0 rgba(0,0,0,0.25);}
+.proj-banner{
+  height:110px; display:flex; align-items:center; justify-content:center; font-size:42px;
+  border-bottom:4px solid #000; position:relative;
+}
+.proj-banner::after{
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 6px, transparent 6px 12px);
+}
+.proj-body{padding:18px 20px; display:flex; flex-direction:column; gap:10px; flex:1;}
+.proj-title{font-family:var(--font-pixel); font-size:13px;}
+.proj-desc{font-size:16px; flex:1; opacity:0.85;}
+.tags{display:flex; gap:6px; flex-wrap:wrap;}
+.tag{
+  font-size:12px; background:var(--stone-dark); color:#fff; padding:4px 8px;
+  border:2px solid #000; font-family:var(--font-pixel); font-size:8px;
+}
+.proj-links{display:flex; gap:10px; margin-top:6px;}
+.proj-links a{
+  font-family:var(--font-pixel); font-size:8px; background:#000; color:#fff;
+  padding:8px 10px; border:2px solid #000; transition:background 0.15s ease;
+}
+.proj-links a:hover{background:var(--emerald); color:#000;}
+
+/* ============================================================
+   CONTACT — NETHER PORTAL
+   ============================================================ */
+#contact{
+  background:linear-gradient(180deg, var(--nether) 0%, #180a1e 100%);
+}
+.portal-frame{
+  max-width:640px; margin:0 auto 50px; padding:26px;
+  background:#0d0d0d;
+  border:10px solid #0d0d0d;
+  box-shadow:0 0 0 4px #000, 0 0 60px 10px rgba(200,96,255,0.25);
+  position:relative;
+}
+.portal-inner{
+  position:absolute; inset:14px;
+  background:linear-gradient(160deg, var(--nether2), var(--portal), var(--nether2));
+  background-size:200% 200%;
+  animation:portalShift 4s ease-in-out infinite;
+  opacity:0.35; z-index:0;
+}
+@keyframes portalShift{0%{background-position:0% 0%;}50%{background-position:100% 100%;}100%{background-position:0% 0%;}}
+.portal-content{position:relative; z-index:1;}
+
+.field{margin-bottom:16px; display:flex; flex-direction:column; gap:6px;}
+.field label{font-family:var(--font-pixel); font-size:10px; color:var(--gold);}
+.field input, .field textarea{
+  font-family:var(--font-body); font-size:18px;
+  background:#1a1a1a; color:#fff; border:3px solid #000;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,0.08);
+  padding:12px 14px; resize:vertical;
+}
+.field input:focus, .field textarea:focus{outline:2px solid var(--portal);}
+.submit-btn{
+  width:100%; padding:16px; font-size:12px; background:var(--portal); color:#1a0022;
+  border:3px solid #000; box-shadow:0 5px 0 rgba(0,0,0,0.4);
+  transition:transform 0.08s ease;
+}
+.submit-btn:hover{filter:brightness(1.1);}
+.submit-btn:active{transform:translateY(4px); box-shadow:none;}
+
+.social-row{display:flex; justify-content:center; gap:16px; flex-wrap:wrap;}
+.social-item{
+  width:54px; height:54px; background:#1a1a1a; border:3px solid #000;
+  display:flex; align-items:center; justify-content:center; font-size:22px;
+  transition:transform 0.15s ease;
+}
+.social-item:hover{transform:translateY(-6px) rotate(-6deg); background:var(--portal);}
+
+footer{
+  text-align:center; padding:30px 20px 110px; font-size:15px; opacity:0.6;
+  background:#120818;
+}
+
+/* ============================================================
+   REVEAL ON SCROLL
+   ============================================================ */
+.reveal{opacity:0; transform:translateY(40px); transition:opacity 0.6s ease, transform 0.6s ease;}
+.reveal.in{opacity:1; transform:translateY(0);}
+.reveal-block{
+  animation:none;
+}
+.reveal.in .drop-anim{animation:dropIn 0.5s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes dropIn{from{transform:translateY(-60px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+
+/* stagger children */
+.stagger > *{opacity:0; transform:translateY(24px); transition:opacity 0.5s ease, transform 0.5s ease;}
+.reveal.in .stagger > *{opacity:1; transform:translateY(0);}
+.stagger > *:nth-child(1){transition-delay:0.05s;}
+.stagger > *:nth-child(2){transition-delay:0.12s;}
+.stagger > *:nth-child(3){transition-delay:0.19s;}
+.stagger > *:nth-child(4){transition-delay:0.26s;}
+.stagger > *:nth-child(5){transition-delay:0.33s;}
+.stagger > *:nth-child(6){transition-delay:0.4s;}
+
+/* ============================================================
+   HOTBAR NAVIGATION (signature element)
+   ============================================================ */
+#hotbar{
+  position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+  display:flex; gap:6px; background:rgba(20,20,20,0.9);
+  padding:6px; border:3px solid #000; box-shadow:0 6px 0 rgba(0,0,0,0.4);
+  z-index:999;
+}
+.hotbar-slot{
+  width:54px; height:54px; background:#3a3a3a; border:2px solid #1a1a1a;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  position:relative; transition:background 0.15s ease;
+}
+.hotbar-slot .hk-icon{font-size:20px;}
+.hotbar-slot .hk-num{
+  position:absolute; top:2px; left:4px; font-family:var(--font-pixel); font-size:8px; color:#ccc;
+}
+.hotbar-slot.active{background:#5a5a5a; box-shadow:inset 0 0 0 3px #fff;}
+.hotbar-slot:hover{background:#4d4d4d;}
+.hotbar-slot .hk-tip{
+  position:absolute; bottom:110%; left:50%; transform:translateX(-50%);
+  background:#000; color:#fff; font-family:var(--font-pixel); font-size:8px;
+  padding:5px 7px; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity 0.15s ease;
+  border:2px solid #555;
+}
+.hotbar-slot:hover .hk-tip{opacity:1;}
+
+@media (max-width:600px){
+  #hotbar{gap:4px; padding:4px;}
+  .hotbar-slot{width:42px; height:42px;}
+  .hotbar-slot .hk-icon{font-size:16px;}
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+}
+</style>
+</head>
+<body>
+
+<div id="xp-bar-wrap"><div id="xp-bar-fill"></div></div>
+<div id="xp-label">XP</div>
+<div id="achv-container"></div>
+
+<!-- ============ HERO ============ -->
+<section id="hero">
+  <div class="sun"></div>
+  <div class="cloud cloud1"></div>
+  <div class="cloud cloud2"></div>
+  <div class="cloud cloud3"></div>
+  <div class="floating-block fb1"></div>
+  <div class="floating-block fb2"></div>
+  <div class="floating-block fb3"></div>
+  <div class="floating-block fb4"></div>
+
+  <div class="hero-content">
+    <span class="hero-tag">✦ WORLD LOADED ✦</span>
+    <h1 class="hero-title">RENDY</h1>
+    <p class="hero-sub" id="typed-text"></p>
+    <div class="hero-btns">
+      <a href="#projects" class="mc-btn primary">🎮 Lihat Karya</a>
+      <a href="#contact" class="mc-btn accent">✉️ Hubungi Saya</a>
+    </div>
+  </div>
+
+  <a href="#about" class="scroll-hint" style="cursor:pointer;">▼ GALI LEBIH DALAM ▼</a>
+
+  <div class="ground-row" id="ground-row"></div>
+</section>
+
+<!-- ============ ABOUT ============ -->
+<section id="about">
+  <div class="wrap reveal">
+    <span class="eyebrow">CRAFTING RECIPE</span>
+    <h2 class="section-title">Tentang Saya</h2>
+
+    <div class="about-grid">
+      <div>
+        <div class="avatar-box">
+          <div class="avatar-pixel" id="avatar-pixel"></div>
+        </div>
+      </div>
+
+      <div>
+        <p class="about-bio">
+          Halo! Saya <strong>Rendy</strong>, seorang Full-Stack Developer yang membangun aplikasi web
+          blok demi blok — sama seperti membangun dunia di Minecraft. Saya suka merangkai ide sederhana
+          menjadi sesuatu yang solid, fungsional, dan enak dipakai.
+        </p>
+        <p class="about-bio">
+          Sudah lebih dari <strong>4 tahun</strong> menjelajah berbagai "biome" teknologi: dari front-end
+          yang penuh detail, sampai back-end yang jadi fondasi setiap proyek.
+        </p>
+
+        <div class="stat-row">
+          <div class="stat-card"><div class="stat-num">LV. 24</div><div class="stat-lbl">Pengalaman</div></div>
+          <div class="stat-card"><div class="stat-num">37+</div><div class="stat-lbl">Quest Selesai</div></div>
+          <div class="stat-card"><div class="stat-num">99%</div><div class="stat-lbl">Uptime Klien</div></div>
+        </div>
+
+        <div>
+          <div class="recipe-title">RESEP: SOLUSI DIGITAL</div>
+          <div class="crafting">
+            <div class="craft-grid">
+              <div class="craft-slot">🧠</div><div class="craft-slot">🎨</div><div class="craft-slot">⚙️</div>
+              <div class="craft-slot">💻</div><div class="craft-slot">📱</div><div class="craft-slot">🔧</div>
+              <div class="craft-slot">☕</div><div class="craft-slot">🧩</div><div class="craft-slot">🚀</div>
+            </div>
+            <div class="craft-arrow">➜</div>
+            <div class="craft-output">💎</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SKILLS ============ -->
+<section id="skills">
+  <div class="torch left"></div>
+  <div class="torch right"></div>
+  <div class="wrap reveal">
+    <span class="eyebrow">INVENTORY</span>
+    <h2 class="section-title">Skill &amp; Perlengkapan</h2>
+
+    <div class="inv-grid stagger" id="inv-grid">
+      <!-- filled by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ============ PROJECTS ============ -->
+<section id="projects">
+  <div class="wrap reveal">
+    <span class="eyebrow">VILLAGE SHOWCASE</span>
+    <h2 class="section-title">Bangunan &amp; Proyek</h2>
+
+    <div class="proj-grid stagger">
+      <div class="proj-card">
+        <div class="proj-banner" style="background:var(--emerald);">🏪</div>
+        <div class="proj-body">
+          <div class="proj-title">TOKO-KU</div>
+          <p class="proj-desc">Platform e-commerce ringan dengan checkout cepat dan dashboard stok real-time.</p>
+          <div class="tags"><span class="tag">React</span><span class="tag">Node.js</span><span class="tag">MongoDB</span></div>
+          <div class="proj-links"><a href="#">LIVE DEMO</a><a href="#">SOURCE</a></div>
+        </div>
+      </div>
+
+      <div class="proj-card">
+        <div class="proj-banner" style="background:var(--diamond);">📊</div>
+        <div class="proj-body">
+          <div class="proj-title">DASH-CRAFT</div>
+          <p class="proj-desc">Dashboard analitik dengan visualisasi data interaktif untuk tim operasional.</p>
+          <div class="tags"><span class="tag">Vue</span><span class="tag">D3.js</span><span class="tag">Firebase</span></div>
+          <div class="proj-links"><a href="#">LIVE DEMO</a><a href="#">SOURCE</a></div>
+        </div>
+      </div>
+
+      <div class="proj-card">
+        <div class="proj-banner" style="background:var(--gold);">📱</div>
+        <div class="proj-body">
+          <div class="proj-title">QUEST TRACKER</div>
+          <p class="proj-desc">Aplikasi manajemen tugas bertema RPG untuk memotivasi produktivitas haRendy.</p>
+          <div class="tags"><span class="tag">Flutter</span><span class="tag">Supabase</span></div>
+          <div class="proj-links"><a href="#">LIVE DEMO</a><a href="#">SOURCE</a></div>
+        </div>
+      </div>
+
+      <div class="proj-card">
+        <div class="proj-banner" style="background:var(--redstone);">🌐</div>
+        <div class="proj-body">
+          <div class="proj-title">PORTAL API</div>
+          <p class="proj-desc">RESTful API dengan dokumentasi otomatis dan sistem autentikasi berlapis.</p>
+          <div class="tags"><span class="tag">Express</span><span class="tag">PostgreSQL</span><span class="tag">Docker</span></div>
+          <div class="proj-links"><a href="#">LIVE DEMO</a><a href="#">SOURCE</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONTACT ============ -->
+<section id="contact">
+  <div class="wrap reveal">
+    <span class="eyebrow">NETHER PORTAL</span>
+    <h2 class="section-title">Hubungi Saya</h2>
+
+    <div class="portal-frame">
+      <div class="portal-inner"></div>
+      <div class="portal-content">
+        <form id="contact-form">
+          <div class="field">
+            <label for="nama">NAMA</label>
+            <input type="text" id="nama" placeholder="Nama kamu" required>
+          </div>
+          <div class="field">
+            <label for="email">EMAIL</label>
+            <input type="email" id="email" placeholder="kamu@email.com" required>
+          </div>
+          <div class="field">
+            <label for="pesan">PESAN</label>
+            <textarea id="pesan" rows="4" placeholder="Tulis pesanmu di sini..." required></textarea>
+          </div>
+          <button type="submit" class="submit-btn">📨 KIRIM PESAN</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="social-row">
+      <a class="social-item" href="#" title="GitHub">🐙</a>
+      <a class="social-item" href="#" title="LinkedIn">💼</a>
+      <a class="social-item" href="#" title="Instagram">📷</a>
+      <a class="social-item" href="mailto:Rendy@example.com" title="Email">✉️</a>
+    </div>
+  </div>
+</section>
+
+<footer>Dibuat dengan 🧱 blok dan ❤️ &nbsp;—&nbsp; © 2026 RENDY</footer>
+
+<!-- ============ HOTBAR NAV ============ -->
+<div id="hotbar">
+  <a class="hotbar-slot" data-target="hero"><span class="hk-num">1</span><span class="hk-icon">🌍</span><span class="hk-tip">Home</span></a>
+  <a class="hotbar-slot" data-target="about"><span class="hk-num">2</span><span class="hk-icon">👤</span><span class="hk-tip">Tentang</span></a>
+  <a class="hotbar-slot" data-target="skills"><span class="hk-num">3</span><span class="hk-icon">🎒</span><span class="hk-tip">Skill</span></a>
+  <a class="hotbar-slot" data-target="projects"><span class="hk-num">4</span><span class="hk-icon">🏘️</span><span class="hk-tip">Proyek</span></a>
+  <a class="hotbar-slot" data-target="contact"><span class="hk-num">5</span><span class="hk-icon">🌀</span><span class="hk-tip">Kontak</span></a>
+</div>
+
+<script>
+/* ================= DATA ================= */
+const SKILLS = [
+  {name:"HTML / CSS", icon:"🧱", level:95},
+  {name:"JavaScript", icon:"⚡", level:90},
+  {name:"React", icon:"⚛️", level:85},
+  {name:"Node.js", icon:"🟢", level:80},
+  {name:"Database (SQL/NoSQL)", icon:"🗄️", level:75},
+  {name:"UI/UX Design", icon:"🎨", level:70},
+];
+
+function tierOf(level){
+  if(level >= 90) return {label:"NETHERITE", color:"#5a5a5a"};
+  if(level >= 80) return {label:"BERLIAN", color:"#5ED9E0"};
+  if(level >= 65) return {label:"EMAS", color:"#F0C000"};
+  if(level >= 45) return {label:"BESI", color:"#c9c9c9"};
+  if(level >= 25) return {label:"BATU", color:"#8B8B8B"};
+  return {label:"KAYU", color:"#9C6B3E"};
+}
+
+/* ================= BUILD SKILLS GRID ================= */
+const invGrid = document.getElementById('inv-grid');
+SKILLS.forEach(s=>{
+  const tier = tierOf(s.level);
+  const slot = document.createElement('div');
+  slot.className = 'slot';
+  slot.innerHTML = `
+    <div class="slot-tooltip">Tier: ${tier.label}</div>
+    <div class="slot-top">
+      <div class="slot-icon">${s.icon}</div>
+      <div>
+        <div class="slot-name">${s.name}</div>
+        <div class="slot-tier">${tier.label}</div>
+      </div>
+    </div>
+    <div class="durability"><div class="durability-fill" style="width:${s.level}%; background:${tier.color};"></div></div>
+  `;
+  invGrid.appendChild(slot);
+});
+
+/* ================= BUILD GROUND BLOCKS ================= */
+const groundRow = document.getElementById('ground-row');
+const blockCount = Math.ceil(window.innerWidth / 60) + 2;
+for(let i=0;i<blockCount;i++){
+  const b = document.createElement('div');
+  b.className = 'ground-block';
+  b.style.animationDelay = (i * 0.08) + 's';
+  groundRow.appendChild(b);
+}
+
+/* ================= PIXEL AVATAR (voxel-style, original pattern) ================= */
+/* 12x12 grid, simple friendly blocky face - not a copy of any existing game asset */
+const AVA_ROWS = [
+"000111111000",
+"001111111100",
+"011122222110",
+"011222222110",
+"011232232110",
+"011222222110",
+"011222222110",
+"011244442110",
+"001222222100",
+"000333333000",
+"000355555300",
+"000000000000",
+];
+const AVA_COLORS = {
+  "0":"transparent",
+  "1":"#5C3A20", // hair/helm
+  "2":"#E8B98A", // skin
+  "3":"#3B6EA5", // shirt
+  "4":"#7A4B2A", // mouth/shadow
+  "5":"#2E4E76", // shirt shade
+};
+const avatarEl = document.getElementById('avatar-pixel');
+AVA_ROWS.forEach(row=>{
+  row.split('').forEach(ch=>{
+    const px = document.createElement('div');
+    px.style.background = AVA_COLORS[ch] || 'transparent';
+    avatarEl.appendChild(px);
+  });
+});
+
+/* ================= TYPED HERO SUBTITLE ================= */
+const typedEl = document.getElementById('typed-text');
+const phrases = ["Full-Stack Developer", "Digital Builder", "Pemecah Masalah Kreatif"];
+let pIndex=0, cIndex=0, deleting=false;
+function typeLoop(){
+  const current = phrases[pIndex];
+  if(!deleting){
+    cIndex++;
+    typedEl.innerHTML = current.slice(0,cIndex) + '<span class="cursor-blink">▌</span>';
+    if(cIndex === current.length){ deleting = true; setTimeout(typeLoop, 1400); return; }
+  } else {
+    cIndex--;
+    typedEl.innerHTML = current.slice(0,cIndex) + '<span class="cursor-blink">▌</span>';
+    if(cIndex === 0){ deleting = false; pIndex = (pIndex+1) % phrases.length; }
+  }
+  setTimeout(typeLoop, deleting ? 40 : 80);
+}
+typeLoop();
+
+/* ================= XP SCROLL PROGRESS ================= */
+const xpFill = document.getElementById('xp-bar-fill');
+function updateXP(){
+  const scrolled = window.scrollY;
+  const max = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = max > 0 ? (scrolled / max) * 100 : 0;
+  xpFill.style.width = pct + '%';
+}
+window.addEventListener('scroll', updateXP);
+updateXP();
+
+/* ================= HOTBAR NAV ================= */
+const hotbarSlots = document.querySelectorAll('.hotbar-slot');
+const sections = document.querySelectorAll('section');
+hotbarSlots.forEach(slot=>{
+  slot.addEventListener('click', ()=>{
+    const target = document.getElementById(slot.dataset.target);
+    if(target) target.scrollIntoView({behavior:'smooth'});
+  });
+});
+document.addEventListener('keydown', (e)=>{
+  if(['1','2','3','4','5'].includes(e.key)){
+    const idx = parseInt(e.key,10) - 1;
+    if(hotbarSlots[idx]) hotbarSlots[idx].click();
+  }
+});
+
+/* highlight active hotbar slot + achievement toasts */
+const achvSeen = new Set();
+const ACHV_TITLES = {
+  hero:"Dunia Dimuat",
+  about:"Bertemu Sang Pembangun",
+  skills:"Inventaris Terbuka",
+  projects:"Desa Ditemukan",
+  contact:"Portal Diaktifkan",
+};
+function showAchievement(id){
+  if(achvSeen.has(id)) return;
+  achvSeen.add(id);
+  const container = document.getElementById('achv-container');
+  const toast = document.createElement('div');
+  toast.className = 'achv-toast';
+  toast.innerHTML = `
+    <div class="achv-icon">🏆</div>
+    <div class="achv-text">
+      <div class="achv-top">PENCAPAIAN DIRAIH!</div>
+      <div class="achv-bottom">${ACHV_TITLES[id] || id}</div>
+    </div>
+  `;
+  container.appendChild(toast);
+  setTimeout(()=> toast.remove(), 3600);
+}
+
+const observer = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      entry.target.classList.add('in');
+      const parentSection = entry.target.closest('section');
+      if(parentSection){
+        const id = parentSection.id;
+        hotbarSlots.forEach(s=> s.classList.toggle('active', s.dataset.target === id));
+        showAchievement(id);
+      }
+    }
+  });
+}, {threshold:0.1, rootMargin:"0px 0px -10% 0px"});
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+/* hero has no .reveal wrapper, so handle its initial state manually */
+hotbarSlots.forEach(s=> s.classList.toggle('active', s.dataset.target === 'hero'));
+showAchievement('hero');
+
+/* ================= HERO PARALLAX ON MOUSE ================= */
+const floatBlocks = document.querySelectorAll('.floating-block');
+document.getElementById('hero').addEventListener('mousemove', (e)=>{
+  const {innerWidth:w, innerHeight:h} = window;
+  const x = (e.clientX / w - 0.5) * 20;
+  const y = (e.clientY / h - 0.5) * 20;
+  floatBlocks.forEach((b,i)=>{
+    const factor = (i+1) * 0.4;
+    b.style.transform = `translate(${x*factor}px, ${y*factor}px)`;
+  });
+});
+
+/* ================= CONTACT FORM (demo submit) ================= */
+document.getElementById('contact-form').addEventListener('submit', function(e){
+  e.preventDefault();
+  const btn = this.querySelector('.submit-btn');
+  const original = btn.textContent;
+  btn.textContent = '✅ TERKIRIM!';
+  showAchievement('sent-message');
+  ACHV_TITLES['sent-message'] = 'Pesan Terkirim ke Penjaga Portal';
+  setTimeout(()=>{ btn.textContent = original; this.reset(); }, 2200);
+  // Catatan: hubungkan form ini ke backend/email service (misal Formspree) untuk pengiriman sungguhan.
+});
+</script>
+</body>
+</html>
